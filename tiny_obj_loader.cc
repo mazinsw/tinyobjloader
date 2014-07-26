@@ -219,6 +219,8 @@ void InitMaterial(material_t& material) {
   material.shininess = 1.f;
   material.ior = 1.f;
   material.unknown_parameter.clear();
+  material.offset = 0;
+  material.count = 0;
 }
 
 static bool
@@ -228,7 +230,7 @@ exportFaceGroupToShape(
   const std::vector<float> &in_normals,
   const std::vector<float> &in_texcoords,
   const std::vector<std::vector<vertex_index> >& faceGroup,
-  const material_t &material,
+  std::list<material_t>& materials,
   const std::string &name,
   const bool is_material_seted)
 {
@@ -277,16 +279,7 @@ exportFaceGroupToShape(
   shape.mesh.normals.swap(normals);
   shape.mesh.texcoords.swap(texcoords);
   shape.mesh.indices.swap(indices);
-
-  if(is_material_seted) {
-    shape.material = material;
-  } else {
-    InitMaterial(shape.material);
-    shape.material.diffuse[0] = 1.f;
-    shape.material.diffuse[1] = 1.f;
-    shape.material.diffuse[2] = 1.f;
-  }
-
+  shape.materials.swap(materials);
   return true;
 
 }
@@ -538,6 +531,7 @@ std::string LoadObj(
   std::map<std::string, material_t> material_map;
   material_t material;
   bool is_material_seted = false;
+  std::list<material_t> materials;
 
   int maxchars = 8192;  // Alloc enough size.
   std::vector<char> buf(maxchars);  // Alloc enough size.
@@ -627,6 +621,10 @@ std::string LoadObj(
 
       if (material_map.find(namebuf) != material_map.end()) {
         material = material_map[namebuf];
+        material.offset = faceGroup.size() * 3;
+        if(!materials.empty())
+          materials.back().count = material.offset - materials.back().offset;
+        materials.push_back(material);
         is_material_seted = true;
       } else {
         // { error!! material not found }
@@ -656,13 +654,16 @@ std::string LoadObj(
 
       // flush previous face group.
       shape_t shape;
-      bool ret = exportFaceGroupToShape(shape, v, vn, vt, faceGroup, material, name, is_material_seted);
+      if(!materials.empty())
+        materials.back().count = faceGroup.size() * 3 - materials.back().offset;
+      bool ret = exportFaceGroupToShape(shape, v, vn, vt, faceGroup, materials, name, is_material_seted);
       if (ret) {
         shapes.push_back(shape);
       }
 
       is_material_seted = false;
       faceGroup.clear();
+      materials.clear();
 
       std::vector<std::string> names;
       while (!isNewLine(token[0])) {
@@ -688,7 +689,9 @@ std::string LoadObj(
 
       // flush previous face group.
       shape_t shape;
-      bool ret = exportFaceGroupToShape(shape, v, vn, vt, faceGroup, material, name, is_material_seted);
+      if(!materials.empty())
+        materials.back().count = faceGroup.size() * 3 - materials.back().offset;
+      bool ret = exportFaceGroupToShape(shape, v, vn, vt, faceGroup, materials, name, is_material_seted);
       if (ret) {
         shapes.push_back(shape);
       }
@@ -710,12 +713,15 @@ std::string LoadObj(
   }
 
   shape_t shape;
-  bool ret = exportFaceGroupToShape(shape, v, vn, vt, faceGroup, material, name, is_material_seted);
+  if(!materials.empty())
+    materials.back().count = faceGroup.size() * 3 - materials.back().offset;
+  bool ret = exportFaceGroupToShape(shape, v, vn, vt, faceGroup, materials, name, is_material_seted);
   if (ret) {
     shapes.push_back(shape);
   }
   is_material_seted = false; // for safety
   faceGroup.clear();  // for safety
+  materials.clear();  // for safety
 
   return err.str();
 }

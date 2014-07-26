@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <map>
 
 namespace tinyobj {
@@ -27,6 +28,8 @@ typedef struct
     // illumination model (see http://www.fileformat.info/format/material/)
     int illum;
 
+    unsigned int offset;
+    unsigned int count;
     std::string ambient_texname;
     std::string diffuse_texname;
     std::string specular_texname;
@@ -45,7 +48,7 @@ typedef struct
 typedef struct
 {
     std::string  name;
-    material_t   material;
+    std::list<material_t> materials;
     mesh_t       mesh;
 } shape_t;
 
